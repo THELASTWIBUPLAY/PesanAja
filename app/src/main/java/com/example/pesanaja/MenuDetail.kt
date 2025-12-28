@@ -37,96 +37,60 @@ class MenuDetail(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Init View
-        val ivImage = view.findViewById<ImageView>(R.id.ivSheetImage)
-        val tvName = view.findViewById<TextView>(R.id.tvSheetName)
-        val tvPrice = view.findViewById<TextView>(R.id.tvSheetPrice)
-        val tvDesc = view.findViewById<TextView>(R.id.tvSheetDesc)
-        val btnMinus = view.findViewById<ImageButton>(R.id.btnSheetMinus)
-        val btnPlus = view.findViewById<ImageButton>(R.id.btnSheetPlus)
+        // 1. Inisialisasi Semua View (Termasuk yang dikembalikan)
         val tvQty = view.findViewById<TextView>(R.id.tvSheetQty)
+        val btnPlus = view.findViewById<ImageButton>(R.id.btnSheetPlus)
+        val btnMinus = view.findViewById<ImageButton>(R.id.btnSheetMinus)
         val btnSave = view.findViewById<Button>(R.id.btnSheetSave)
+        val spinnerLevel = view.findViewById<Spinner>(R.id.spinnerLevel)
+        val tvLevelLabel = view.findViewById<TextView>(R.id.tvLevelLabel)
+        val tvPrice = view.findViewById<TextView>(R.id.tvSheetPrice)
 
-        // Komponen Level (Yang baru kita tambah di XML)
-        val layoutLevel = view.findViewById<LinearLayout>(R.id.layoutSheetLevel)
-        val rgLevel = view.findViewById<RadioGroup>(R.id.rgSheetLevel)
-
-        // 1. SET DATA DASAR
-        tvName.text = menu.name
-        tvDesc.text = menu.description ?: "Menu lezat siap disantap."
-
-        // Load Gambar Server
-        // PENTING: Sesuaikan IP Address Laptop kamu
-        val baseUrl = "http://192.168.0.102:8000/storage/images/menu/"
-        Glide.with(this)
-            .load(baseUrl + (menu.image ?: ""))
-            .placeholder(android.R.drawable.ic_menu_gallery)
-            .into(ivImage)
-
-        // Set Harga Awal
-        updatePriceDisplay(tvPrice)
-
-        // Set Qty Awal
+        // Set nilai awal qty dari adapter (jika sudah ada di keranjang)
         qty = if (currentQty > 0) currentQty else 1
         tvQty.text = qty.toString()
 
-        // 2. LOGIC LEVEL PEDAS (Otomatis muncul jika perlu)
-        if (menu.perluLevel == "YA") {
-            layoutLevel.visibility = View.VISIBLE
-            rgLevel.removeAllViews() // Bersihkan dulu biar gak dobel
-
-            // Bikin RadioButton secara coding (Dinamis)
-            for (i in levelNames.indices) {
-                val rb = RadioButton(context)
-                rb.text = levelNames[i]
-                rb.id = i // ID pake index array
-                rb.setPadding(0, 10, 0, 10)
-                rgLevel.addView(rb)
-            }
-
-            // Listener kalau user ganti pilihan
-            rgLevel.setOnCheckedChangeListener { _, checkedId ->
-                // checkedId adalah index (0..9)
-                if (checkedId >= 0 && checkedId < levelIds.size) {
-                    selectedLevelId = levelIds[checkedId]
-                    selectedExtraCost = extraCosts[checkedId]
-
-                    // Update tampilan harga (Harga Dasar + Biaya Level)
-                    updatePriceDisplay(tvPrice)
-                }
-            }
-
-            // Default pilih Level 0 (Index 0)
-            rgLevel.check(0)
-        } else {
-            // Kalau bukan makanan pedas (misal Minuman), sembunyikan level
-            layoutLevel.visibility = View.GONE
-            selectedLevelId = null
-            selectedExtraCost = 0
-        }
-
-        // 3. LOGIC TOMBOL QTY
-        btnMinus.setOnClickListener {
-            if (qty > 1) { // Di detail minimal 1
-                qty--
-                tvQty.text = qty.toString()
-            }
-        }
-
+        // 2. Logic Tombol Plus & Minus
         btnPlus.setOnClickListener {
             qty++
             tvQty.text = qty.toString()
         }
 
-        // 4. TOMBOL SIMPAN
+        btnMinus.setOnClickListener {
+            if (qty > 1) {
+                qty--
+                tvQty.text = qty.toString()
+            }
+        }
+
+        // 3. Logic Spinner Level (Tetap dipertahankan)
+        if (menu.hasLevel == 1 && !menu.levels.isNullOrEmpty()) {
+            val listNames = menu.levels.map { "${it.name} (+Rp ${it.extraCost})" }
+            val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, listNames)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerLevel.adapter = adapter
+
+            spinnerLevel.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    val level = menu.levels[pos]
+                    selectedLevelId = level.id
+                    selectedExtraCost = level.extraCost
+                    updatePriceDisplay(tvPrice)
+                }
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+            tvLevelLabel.visibility = View.VISIBLE
+            spinnerLevel.visibility = View.VISIBLE
+        }
+
+        // 4. Tombol Simpan (Sekarang mengirim qty asli hasil klik plus-minus)
         btnSave.setOnClickListener {
-            // Validasi: Kalau butuh level tapi anehnya belum terpilih
-            if (menu.perluLevel == "YA" && selectedLevelId == null) {
-                Toast.makeText(context, "Mohon pilih level pedas dulu!", Toast.LENGTH_SHORT).show()
+            if (menu.hasLevel == 1 && selectedLevelId == null) {
+                Toast.makeText(context, "Pilih level dulu!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Kirim 4 data penting ke Adapter/Activity
+            // Mengirim 'qty' yang sudah dimanipulasi tombol plus/minus
             onSave(qty, selectedLevelId, selectedExtraCost, "")
             dismiss()
         }

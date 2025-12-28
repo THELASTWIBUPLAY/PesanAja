@@ -9,11 +9,14 @@ data class CartItem(
     @SerializedName("quantity") var quantity: Int,
     @SerializedName("notes") var notes: String? = "",
 
+    // Berikan = null di akhir agar tidak wajib diisi saat inisialisasi manual
+    @SerializedName("menu") val menu: MenuModel? = null,
+    @SerializedName("level") val level: LevelModel? = null,
+
     var perluLevel: Boolean = false,
     @SerializedName("level_id") var levelId: Int? = null,
     @SerializedName("extra_cost") var extraCost: Int = 0,
-    @SerializedName("menu_name") var menuName: String? = null,
-    @SerializedName("menu") val menuData: MenuDetail? = null
+    @SerializedName("menu_name") var menuName: String? = null
 
 ) : Serializable
 

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -70,33 +71,36 @@ class ReceiptActivity : AppCompatActivity() {
 
     // --- FUNGSI BARU: UPDATE SEMUA (TEKS + WARNA + TOMBOL) ---
     private fun updateTampilanStatus() {
-        if (currentStatus == "completed" || currentStatus == "paid") {
-            // A. UPDATE STATUS JADI HIJAU
-            tvStatus.text = "LUNAS / COMPLETED"
-            tvStatus.setTextColor(Color.parseColor("#4CAF50")) // Hijau
-
-            // B. UPDATE TOMBOL JADI KEMBALI
-            btnAction.text = "Selesai & Kembali ke Menu"
-            btnAction.backgroundTintList = getColorStateList(android.R.color.darker_gray)
-            btnAction.setOnClickListener {
-                val i = Intent(this, MainActivity::class.java) // Atau MenuActivity
-                i.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(i)
-                finish()
+        // Ubah background & teks berdasarkan status
+        when (currentStatus) {
+            "pending" -> {
+                tvStatus.text = "BELUM BAYAR"
+                tvStatus.setTextColor(Color.parseColor("#C62828")) // Merah
+                btnAction.visibility = View.VISIBLE
+                btnAction.text = "Bayar Sekarang"
             }
-        } else {
-            // A. UPDATE STATUS JADI MERAH
-            tvStatus.text = "PENDING / BELUM BAYAR"
-            tvStatus.setTextColor(Color.parseColor("#F44336")) // Merah
-
-            // B. UPDATE TOMBOL JADI BAYAR
-            btnAction.text = "Bayar Sekarang"
-            btnAction.setOnClickListener {
-                if (orderData != null) {
-                    showPaymentDialog(orderData!!)
-                } else {
-                    Toast.makeText(this, "Data order hilang", Toast.LENGTH_SHORT).show()
+            "processing" -> {
+                tvStatus.text = "LUNAS / DIPROSES"
+                tvStatus.setTextColor(Color.parseColor("#F57C00")) // Oranye
+                // 🎯 SOLUSI: Sembunyikan tombol agar tidak bisa diklik lagi
+                btnAction.text = "Selesai & Kembali ke Menu"
+                btnAction.backgroundTintList = getColorStateList(android.R.color.darker_gray)
+                btnAction.setOnClickListener {
+                    val i = Intent(this, MainActivity::class.java) // Atau MenuActivity
+                    i.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    startActivity(i)
+                    finish()
                 }
+            }
+            "completed" -> {
+                tvStatus.text = "LUNAS / SELESAI"
+                tvStatus.setTextColor(Color.parseColor("#2E7D32")) // Hijau
+                btnAction.visibility = View.GONE
+            }
+            "canceled" -> {
+                tvStatus.text = "DIBATALKAN"
+                tvStatus.setTextColor(Color.GRAY)
+                btnAction.visibility = View.GONE
             }
         }
     }
@@ -135,25 +139,26 @@ class ReceiptActivity : AppCompatActivity() {
     }
 
     private fun verifikasiPembayaran(orderId: Int, dialog: AlertDialog) {
+        // 🎯 Matikan tombol agar tidak bisa diklik lagi selama menunggu respon API
+        btnAction.isEnabled = false
+
         ApiClient.instance.payOrder(orderId).enqueue(object : Callback<OrderResponse> {
             override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
                 dialog.dismiss()
                 if (response.isSuccessful) {
-                    Toast.makeText(this@ReceiptActivity, "Pembayaran Berhasil!", Toast.LENGTH_LONG).show()
-
-                    // 1. UBAH STATUS DI VARIABEL
-                    currentStatus = "completed"
-
-                    // 2. REFRESH TAMPILAN (Biar teks Pending jadi Lunas seketika)
+                    // Update status lokal berdasarkan apa yang dikirim Laravel (processing)
+                    currentStatus = response.body()?.orderData?.status ?: "processing"
                     updateTampilanStatus()
-
+                    Toast.makeText(this@ReceiptActivity, "Pembayaran Berhasil!", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this@ReceiptActivity, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
+                    btnAction.isEnabled = true // Hidupkan lagi jika gagal
+                    Toast.makeText(this@ReceiptActivity, "Gagal Verifikasi", Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onFailure(call: Call<OrderResponse>, t: Throwable) {
                 dialog.dismiss()
+                btnAction.isEnabled = true // Hidupkan lagi jika error koneksi
                 Toast.makeText(this@ReceiptActivity, "Koneksi Error", Toast.LENGTH_SHORT).show()
             }
         })

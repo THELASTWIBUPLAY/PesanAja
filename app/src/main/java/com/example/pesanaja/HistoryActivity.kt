@@ -2,6 +2,7 @@ package com.example.pesanaja
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.*
@@ -14,6 +15,7 @@ import com.example.pesanaja.entities.HistoryResponse
 import com.example.pesanaja.entities.OrderModel
 import com.example.pesanaja.entities.OrderResponse
 import com.example.pesanaja.ApiClient
+import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -63,10 +65,15 @@ class HistoryActivity : AppCompatActivity() {
 
                     if (listData.isNotEmpty()) {
                         // DISINI BEDANYA: Kita pasang aksi buat tombol 'onPayClick'
-                        val adapter = HistoryAdapter(listData) { orderYangMauDibayar ->
-                            // Pas tombol diklik, jalankan fungsi ini:
-                            showPaymentDialog(orderYangMauDibayar)
-                        }
+                        val adapter = HistoryAdapter(listData,
+                            onPayClick = { orderYangMauDibayar ->
+                                showPaymentDialog(orderYangMauDibayar)
+                            },
+                            onCancelClick = { orderYangMauDibatal ->
+                                // Tambahkan dialog konfirmasi sebelum menghapus
+                                showCancelConfirmation(orderYangMauDibatal)
+                            }
+                        )
                         rvHistory.adapter = adapter
                         tvEmpty.visibility = View.GONE
                     } else {
@@ -140,6 +147,41 @@ class HistoryActivity : AppCompatActivity() {
             override fun onFailure(call: Call<OrderResponse>, t: Throwable) {
                 dialog.dismiss()
                 Toast.makeText(this@HistoryActivity, "Koneksi Error", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showCancelConfirmation(order: OrderModel) {
+        AlertDialog.Builder(this)
+            .setTitle("Batalkan Pesanan")
+            .setMessage("Apakah Anda yakin ingin membatalkan pesanan ini?")
+            .setPositiveButton("Ya, Batal") { _, _ ->
+                prosesBatalKeAPI(order.id) // Panggil fungsi yang sudah ada
+            }
+            .setNegativeButton("Tidak", null)
+            .show()
+    }
+
+    private fun prosesBatalKeAPI(orderId: Int) {
+        // TEST: Jika Toast ini muncul, berarti listener tombol sudah benar
+        Toast.makeText(this, "Membatalkan pesanan #$orderId...", Toast.LENGTH_SHORT).show()
+
+        ApiClient.instance.updateOrderStatus(orderId, "cancelled").enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@HistoryActivity, "Berhasil Dibatalkan", Toast.LENGTH_SHORT).show()
+                    loadHistory() // Memuat ulang daftar
+                } else {
+                    // TEST: Lihat pesan error dari server
+                    val errorMsg = response.errorBody()?.string()
+                    Log.e("API_ERROR", "Gagal: $errorMsg")
+                    Toast.makeText(this@HistoryActivity, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Log.e("NETWORK_ERROR", t.message ?: "Unknown error")
+                Toast.makeText(this@HistoryActivity, "Kesalahan Jaringan", Toast.LENGTH_SHORT).show()
             }
         })
     }

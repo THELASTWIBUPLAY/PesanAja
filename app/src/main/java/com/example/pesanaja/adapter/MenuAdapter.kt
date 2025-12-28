@@ -85,8 +85,27 @@ class MenuAdapter(
         // --- INTERAKSI TOMBOL ---
 
         holder.btnAdd.setOnClickListener {
-            val newQty = currentQty + 1
-            updateQty(menu.id, newQty)
+            // 1. Cek apakah menu ini punya level (1 = Ya)
+            if (menu.hasLevel == 1) {
+                // Jika PUNYA LEVEL -> Buka Bottom Sheet (sama seperti klik kartu)
+                val activity = holder.itemView.context as? AppCompatActivity
+                activity?.let { act ->
+                    val bottomSheet = MenuDetail(menu, currentQty) { qtyBaru, lvlId, extra, note ->
+                        // Update jumlah
+                        updateQty(menu.id, qtyBaru)
+
+                        // Simpan Level yang dipilih ke Activity
+                        if (lvlId != null) {
+                            listener.onLevelChange(menu.id, lvlId, extra)
+                        }
+                    }
+                    bottomSheet.show(act.supportFragmentManager, "MenuDetail")
+                }
+            } else {
+                // Jika TIDAK PUNYA LEVEL -> Langsung tambah qty seperti biasa
+                val newQty = currentQty + 1
+                updateQty(menu.id, newQty)
+            }
         }
 
         holder.btnMinus.setOnClickListener {

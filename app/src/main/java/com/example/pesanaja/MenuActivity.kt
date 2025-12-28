@@ -153,27 +153,25 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
                 var perluLevel = false
 
                 // Cek Level
-                if (menuDetail.perluLevel == "YA") {
-                    perluLevel = true
-                    // Default ke Level 1 (Netral) kalau user lupa pilih
-                    val levelInfo = selectedLevels[id] ?: Pair(1, 0)
+                if (menuDetail.hasLevel == 1) { // 🎯 Ganti dari .perluLevel == "YA"
+                    val levelInfo = selectedLevels[id] ?: Pair(menuDetail.levels?.firstOrNull()?.id ?: 0, 0)
                     finalLevelId = levelInfo.first
                     finalExtraCost = levelInfo.second
                 }
 
                 selectedItems.add(CartItem(
                     menuId = id,
-                    menuName = menuDetail.name, // Penting buat dikirim ke History nanti
                     price = menuDetail.price,
                     quantity = qty,
                     notes = "",
-                    perluLevel = perluLevel,
+                    // Tambahkan baris di bawah ini agar tidak merah:
+                    menu = menuDetail,  // Mengisi parameter menu
+                    level = menuDetail.levels?.find { it.id == finalLevelId }, // Mencari objek level berdasarkan ID
+
+                    perluLevel = (menuDetail.hasLevel == 1),
                     levelId = finalLevelId,
                     extraCost = finalExtraCost,
-
-                    // Isi menuData buat CartItem (biar gak null di keranjang/checkout)
-                    // Kita bisa abaikan image-nya dulu atau isi kalau mau
-                    menuData = null
+                    menuName = menuDetail.name
                 ))
             }
         }

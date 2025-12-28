@@ -17,7 +17,8 @@ import java.util.TimeZone
 
 class HistoryAdapter(
     private val historyList: List<OrderModel>,
-    private val onPayClick: (OrderModel) -> Unit
+    private val onPayClick: (OrderModel) -> Unit,
+    private val onCancelClick: (OrderModel) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -29,6 +30,7 @@ class HistoryAdapter(
         val tvItems: TextView = view.findViewById(R.id.tvHistoryItems)
         val tvTotal: TextView = view.findViewById(R.id.tvHistoryTotal)
         val btnPay: Button = view.findViewById(R.id.btnPayLater)
+        val btnCancel: Button = view.findViewById(R.id.btnCancelOrder) // Ambil ID tombol dari XML
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -61,32 +63,58 @@ class HistoryAdapter(
 
         when (status.lowercase()) {
             "completed", "paid" -> {
-                // Style Hijau (Sukses)
-                holder.cvStatus.setCardBackgroundColor(Color.parseColor("#E8F5E9")) // Hijau Muda
-                holder.tvStatus.setTextColor(Color.parseColor("#2E7D32")) // Hijau Tua
-                holder.tvStatus.text = "LUNAS"
-                holder.btnPay.visibility = View.GONE // Umpetin tombol bayar
+                holder.cvStatus.setCardBackgroundColor(Color.parseColor("#E8F5E9"))
+                holder.tvStatus.setTextColor(Color.parseColor("#2E7D32"))
+                holder.tvStatus.text = "COMPLETE"
+
+                // Sembunyikan kedua tombol jika sudah lunas
+                holder.btnPay.visibility = View.GONE
+                holder.btnCancel.visibility = View.GONE
             }
             "pending" -> {
-                // Style Merah/Oranye (Belum Lunas)
-                holder.cvStatus.setCardBackgroundColor(Color.parseColor("#FFEBEE")) // Merah Muda
-                holder.tvStatus.setTextColor(Color.parseColor("#C62828")) // Merah Tua
+                holder.cvStatus.setCardBackgroundColor(Color.parseColor("#FFEBEE"))
+                holder.tvStatus.setTextColor(Color.parseColor("#C62828"))
                 holder.tvStatus.text = "BELUM BAYAR"
-                holder.btnPay.visibility = View.VISIBLE // Munculin tombol bayar
+
+                // 🎯 DISINI LETAKNYA: Munculkan kedua tombol jika masih pending
+                holder.btnPay.visibility = View.VISIBLE
+                holder.btnCancel.visibility = View.VISIBLE
+            }
+            "cancelled" -> {
+                holder.cvStatus.setCardBackgroundColor(Color.parseColor("#EEEEEE"))
+                holder.tvStatus.setTextColor(Color.GRAY)
+                holder.tvStatus.text = "DIBATALKAN"
+
+                // Sembunyikan tombol jika sudah batal
+                holder.btnPay.visibility = View.GONE
+                holder.btnCancel.visibility = View.GONE
             }
             else -> {
                 holder.cvStatus.setCardBackgroundColor(Color.parseColor("#F5F5F5"))
                 holder.tvStatus.setTextColor(Color.GRAY)
                 holder.btnPay.visibility = View.GONE
+                holder.btnCancel.visibility = View.GONE
             }
         }
 
         // 3. List Item
-        val itemNames = order.items?.joinToString(", ") { item ->
-            val realName = item.menuData?.name ?: item.menuName ?: "Menu"
-            "${item.quantity}x $realName"
-        } ?: "Detail tidak tersedia"
-        holder.tvItems.text = itemNames
+        val description = StringBuilder()
+
+        order.items?.forEach { item ->
+            val namaMenu = item.menu?.name ?: item.menuName ?: "Menu"
+            val namaLevel = item.level?.name ?: ""
+            val qty = item.quantity
+
+            // Menggunakan \n agar setiap item pindah ke baris baru
+            description.append("- $qty x $namaMenu")
+            if (namaLevel.isNotEmpty()) {
+                description.append(" ($namaLevel)")
+            }
+            description.append("\n")
+        }
+
+        val resText = description.toString().trim()
+        holder.tvItems.text = if (resText.isEmpty()) "Detail tidak tersedia" else resText
 
         // 4. Total Harga
         val localeID = Locale("in", "ID")
@@ -94,6 +122,10 @@ class HistoryAdapter(
         holder.tvTotal.text = numberFormat.format(order.finalTotal)
 
         // Listener Tombol Bayar
+        holder.btnCancel.setOnClickListener {
+            onCancelClick(order)
+        }
+
         holder.btnPay.setOnClickListener {
             onPayClick(order)
         }
