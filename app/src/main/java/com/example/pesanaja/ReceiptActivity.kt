@@ -78,6 +78,13 @@ class ReceiptActivity : AppCompatActivity() {
                 tvStatus.setTextColor(Color.parseColor("#C62828")) // Merah
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Bayar Sekarang"
+                btnAction.setOnClickListener {
+                    if (orderData != null) {
+                        showPaymentDialog(orderData!!)
+                    } else {
+                        Toast.makeText(this, "Data order hilang", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             "processing" -> {
                 tvStatus.text = "LUNAS / DIPROSES"
@@ -95,7 +102,14 @@ class ReceiptActivity : AppCompatActivity() {
             "completed" -> {
                 tvStatus.text = "LUNAS / SELESAI"
                 tvStatus.setTextColor(Color.parseColor("#2E7D32")) // Hijau
-                btnAction.visibility = View.GONE
+                btnAction.text = "Selesai & Kembali ke Menu"
+                btnAction.backgroundTintList = getColorStateList(android.R.color.darker_gray)
+                btnAction.setOnClickListener {
+                    val i = Intent(this, MainActivity::class.java) // Atau MenuActivity
+                    i.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    startActivity(i)
+                    finish()
+                }
             }
             "canceled" -> {
                 tvStatus.text = "DIBATALKAN"
